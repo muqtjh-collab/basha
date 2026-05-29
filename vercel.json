@@ -1,9 +1,13 @@
 {
   "version": 2,
   "installCommand": "npm install --prefix server && npm install --prefix client",
-  "buildCommand": "cd client && npm run build",
+  "buildCommand": "npx prisma generate --schema=server/prisma/schema.prisma && cd client && npm run build",
   "outputDirectory": "client/dist",
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
