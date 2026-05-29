@@ -1,0 +1,474 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+enum VehicleStage {
+  AUCTION_PURCHASED
+  VEHICLE_RELEASED
+  CARRIER_PICKUP
+  INLAND_TRANSPORT
+  WAREHOUSE_ARRIVAL
+  INITIAL_INSPECTION
+  EXPORT_PREPARATION
+  TITLE_PROCESSING
+  PORT_DELIVERY_ORIGIN
+  PORT_TERMINAL_HANDLING
+  OCEAN_SHIPPING
+  IRAQ_PORT_ARRIVAL
+  CUSTOMS_CLEARANCE
+  LOCAL_TRANSPORT
+  FINAL_DELIVERY
+  POST_DELIVERY_ARCHIVE
+}
+
+enum UserTrackingStage {
+  PURCHASED
+  PICKUP
+  WAREHOUSE
+  PORT
+  SHIPPING
+  IRAQ_ARRIVAL
+  CUSTOMS
+  DELIVERED
+}
+
+enum AuctionSource {
+  copart
+  iaai
+  other
+}
+
+enum AttachmentType {
+  photo
+  video
+  document
+}
+
+enum DocumentCategory {
+  vehicle_photo
+  vehicle_video
+  vin_photo
+  purchase_receipt
+  customs_document
+  id_passport
+  contract_invoice
+  damage_report
+  delivery_receipt
+  color_confirmation
+  other
+}
+
+enum WalletStatus {
+  active
+  frozen
+}
+
+enum WalletTransactionType {
+  deposit
+  deduction
+  adjustment
+}
+
+enum Currency {
+  USD
+  IQD
+}
+
+enum ReceiptStatus {
+  pending
+  reviewed
+  noted
+}
+
+enum NotificationType {
+  stage_transition
+  wallet_update
+  receipt_status
+  system_announcement
+  vehicle_update
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  login
+  logout
+  stage_transition
+  wallet_operation
+  status_change
+  branch_created
+  branch_updated
+  branch_status_changed
+  branch_deleted
+  customer_created
+  customer_updated
+  customer_status_changed
+  agent_created
+  agent_updated
+  agent_status_changed
+  vehicle_created
+  vehicle_updated
+  vehicle_status_changed
+  stage_transition_completed
+  stage_transition_rejected
+  wallet_balance_added
+  wallet_balance_deducted
+  wallet_deduction_rejected
+  closure_approval_created
+  closure_approval_duplicate_rejected
+  final_closure_completed
+  final_closure_rejected
+}
+
+model Role {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String   @unique
+  nameAr             String   @map("name_ar")
+  level              Int
+  defaultPermissions Json     @map("default_permissions") @db.JsonB
+  description        String?
+  descriptionAr      String?  @map("description_ar")
+  isSystem           Boolean  @default(false) @map("is_system")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  
+  users              User[]
+
+  @@map("roles")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  nameAr    String   @map("name_ar")
+  city      String?
+  cityAr    String?  @map("city_ar")
+  region    String?
+  regionAr  String?  @map("region_ar")
+  status    String   @default("active") // active, inactive
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by") @db.Uuid
+
+  users     User[]
+  vehicles  Vehicle[]
+  creator   User?    @relation("BranchCreator", fields: [createdById], references: [id])
+
+  @@map("branches")
+}
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  username           String?    @unique
+  email              String?    @unique
+  phone              String?
+  passwordHash       String     @map("password_hash")
+  fullName           String     @map("full_name")
+  fullNameAr         String     @map("full_name_ar")
+  roleId             String     @map("role_id") @db.Uuid
+  branchId           String?    @map("branch_id") @db.Uuid
+  parentUserId       String?    @map("parent_user_id") @db.Uuid
+  status             UserStatus @default(active)
+  customPermissions  Json?      @map("custom_permissions") @db.JsonB
+  geographicScope    Json?      @map("geographic_scope") @db.JsonB // Array of branch IDs
+  lastLoginAt        DateTime?  @map("last_login_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+  createdBy          String?    @map("created_by") @db.Uuid
+
+  role               Role       @relation(fields: [roleId], references: [id])
+  branch             Branch?    @relation(fields: [branchId], references: [id])
+  parentUser         User?      @relation("UserHierarchy", fields: [parentUserId], references: [id])
+  children           User[]     @relation("UserHierarchy")
+
+  creator            User?      @relation("UserCreator", fields: [createdBy], references: [id])
+  createdUsers       User[]     @relation("UserCreator")
+
+  // Operations
+  managedVehicles      Vehicle[]    @relation("VehicleAgent")
+  createdVehicles      Vehicle[]    @relation("VehicleCreator")
+  managedCustomers     Customer[]   @relation("CustomerAgent")
+  createdCustomers     Customer[]   @relation("CustomerCreator")
+  wallet               Wallet?
+  customer             Customer?
+  submittedReceipts    Receipt[]    @relation("ReceiptAgent")
+  reviewedReceipts     Receipt[]    @relation("ReceiptReviewer")
+  sessions             Session[]
+  notifications        Notification[]
+  performedAuditLogs   AuditLog[]
+  performedTransactions WalletTransaction[]
+  transitions          VehicleStageTransition[] @relation("TransitionedBy")
+  uploadedAttachments   VehicleAttachment[] @relation("UploadedBy")
+  updatedSettings      SystemSetting[]
+  createdBranches      Branch[] @relation("BranchCreator")
+  approvalsCreated     InternalApproval[] @relation("ApprovedBy")
+  closedVehicles       Vehicle[]          @relation("VehicleClosedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash")
+  expiresAt        DateTime  @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  revokedAt        DateTime? @map("revoked_at")
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Vehicle {
+  id                 String             @id @default(uuid()) @db.Uuid
+  vin                String             @unique
+  make               String?
+  model              String?
+  year               Int?
+  color              String?
+  colorAr            String?            @map("color_ar")
+  lotNumber          String?            @map("lot_number")
+  auctionSource      AuctionSource?     @map("auction_source")
+  purchasePriceUsd   Int?               @map("purchase_price_usd") // in cents
+  purchasePriceIqd   Int?               @map("purchase_price_iqd") // in fils
+  auctionFeesUsd     Int?               @map("auction_fees_usd") // in cents
+  shippingFeesUsd    Int?               @map("shipping_fees_usd") // in cents
+  shippingFeesIqd    Int?               @map("shipping_fees_iqd") // in fils
+  otherFeesUsd       Int?               @map("other_fees_usd") // in cents
+  otherFeesIqd       Int?               @map("other_fees_iqd") // in fils
+  totalCostUsd       Int                @map("total_cost_usd") // in cents
+  totalCostIqd       Int                @map("total_cost_iqd") // in fils
+  currentStage       VehicleStage       @default(AUCTION_PURCHASED) @map("current_stage")
+  userTrackingStage  UserTrackingStage  @default(PURCHASED) @map("user_tracking_stage")
+  agentId            String             @map("agent_id") @db.Uuid
+  customerId         String?            @map("customer_id") @db.Uuid
+  branchId           String?            @map("branch_id") @db.Uuid
+  status             String             @default("active") // active, delivered, archived, cancelled
+  notes              String?
+  notesAr            String?            @map("notes_ar")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  createdBy          String?            @map("created_by") @db.Uuid
+  isClosed           Boolean            @default(false) @map("is_closed")
+  closedAt           DateTime?          @map("closed_at")
+  closedBy           String?            @map("closed_by") @db.Uuid
+
+  agent              User               @relation("VehicleAgent", fields: [agentId], references: [id])
+  customer           Customer?          @relation(fields: [customerId], references: [id])
+  branch             Branch?            @relation(fields: [branchId], references: [id])
+  creator            User?              @relation("VehicleCreator", fields: [createdBy], references: [id])
+  closedByUser       User?              @relation("VehicleClosedBy", fields: [closedBy], references: [id])
+
+  stageTransitions   VehicleStageTransition[]
+  attachments        VehicleAttachment[]
+  internalApprovals  InternalApproval[]
+
+  @@index([vin])
+  @@index([currentStage])
+  @@index([agentId])
+  @@map("vehicles")
+}
+
+model VehicleStageTransition {
+  id             String       @id @default(uuid()) @db.Uuid
+  vehicleId      String       @map("vehicle_id") @db.Uuid
+  fromStage      VehicleStage? @map("from_stage")
+  toStage        VehicleStage @map("to_stage")
+  transitionedBy String       @map("transitioned_by") @db.Uuid
+  notes          String?
+  notesAr        String?      @map("notes_ar")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  user           User         @relation("TransitionedBy", fields: [transitionedBy], references: [id])
+
+  @@map("vehicle_stage_transitions")
+}
+
+model VehicleAttachment {
+  id                 String           @id @default(uuid()) @db.Uuid
+  vehicleId          String           @map("vehicle_id") @db.Uuid
+  stage              VehicleStage
+  attachmentType     AttachmentType   @map("attachment_type")
+  documentCategory   DocumentCategory @map("document_category")
+  fileUrl            String           @map("file_url")
+  fileName           String           @map("file_name")
+  fileSize           Int              @map("file_size") // bytes
+  mimeType           String           @map("mime_type")
+  isCustomerVisible  Boolean          @default(false) @map("is_customer_visible")
+  uploadedBy         String           @map("uploaded_by") @db.Uuid
+  uploadedAt         DateTime         @default(now()) @map("uploaded_at")
+  notes              String?
+
+  vehicle            Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  uploader           User             @relation("UploadedBy", fields: [uploadedBy], references: [id])
+
+  @@map("vehicle_attachments")
+}
+
+model Customer {
+  id                     String     @id @default(uuid()) @db.Uuid
+  userId                 String?    @unique @map("user_id") @db.Uuid
+  agentId                String     @map("agent_id") @db.Uuid
+  fullName               String     @map("full_name")
+  fullNameAr             String?    @map("full_name_ar")
+  phone                  String?
+  email                  String?
+  city                   String?
+  cityAr                 String?    @map("city_ar")
+  region                 String?
+  preferredCommunication String?    @map("preferred_communication") // phone, whatsapp, email
+  notes                  String?
+  status                 String     @default("active") // active, inactive
+  createdAt              DateTime   @default(now()) @map("created_at")
+  updatedAt              DateTime   @updatedAt @map("updated_at")
+  createdBy              String?    @map("created_by") @db.Uuid
+
+  user                   User?      @relation(fields: [userId], references: [id])
+  agent                  User       @relation("CustomerAgent", fields: [agentId], references: [id])
+  creator                User?      @relation("CustomerCreator", fields: [createdBy], references: [id])
+  vehicles               Vehicle[]
+
+  @@map("customers")
+}
+
+model Wallet {
+  id         String       @id @default(uuid()) @db.Uuid
+  agentId    String       @unique @map("agent_id") @db.Uuid
+  balanceUsd Int          @default(0) @map("balance_usd") // in cents
+  balanceIqd Int          @default(0) @map("balance_iqd") // in fils
+  status     WalletStatus @default(active)
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  agent      User         @relation(fields: [agentId], references: [id])
+  transactions WalletTransaction[]
+  receipts   Receipt[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id            String                @id @default(uuid()) @db.Uuid
+  walletId      String                @map("wallet_id") @db.Uuid
+  type          WalletTransactionType
+  amount        Int // positive for deposits, negative for deductions
+  currency      Currency
+  description   String
+  descriptionAr String                @map("description_ar")
+  referenceType String?               @map("reference_type") // manual, vehicle, receipt
+  referenceId   String?               @map("reference_id") @db.Uuid
+  performedBy   String                @map("performed_by") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  wallet        Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  performer     User                  @relation(fields: [performedBy], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+model Receipt {
+  id              String        @id @default(uuid()) @db.Uuid
+  walletId        String        @map("wallet_id") @db.Uuid
+  agentId         String        @map("agent_id") @db.Uuid
+  amount          Int
+  currency        Currency
+  receiptImageUrl String        @map("receipt_image_url")
+  fileName        String        @map("file_name")
+  status          ReceiptStatus @default(pending)
+  reviewedBy      String?       @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?     @map("reviewed_at")
+  adminNotes      String?       @map("admin_notes")
+  submittedAt     DateTime      @default(now()) @map("submitted_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  wallet          Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agent           User          @relation("ReceiptAgent", fields: [agentId], references: [id])
+  reviewer        User?         @relation("ReceiptReviewer", fields: [reviewedBy], references: [id])
+
+  @@map("receipts")
+}
+
+model Notification {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  type          NotificationType
+  titleAr       String           @map("title_ar")
+  bodyAr        String           @map("body_ar")
+  referenceType String?          @map("reference_type") // vehicle, wallet, receipt, system
+  referenceId   String?          @map("reference_id") @db.Uuid
+  isRead        Boolean          @default(false) @map("is_read")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  readAt        DateTime?        @map("read_at")
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String?     @map("user_id") @db.Uuid
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String      @map("entity_id") @db.Uuid
+  oldValue   Json?       @map("old_value") @db.JsonB
+  newValue   Json?       @map("new_value") @db.JsonB
+  ipAddress  String?     @map("ip_address")
+  userAgent  String?     @map("user_agent")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@map("audit_log")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  value       Json     @db.JsonB
+  description String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  updater     User?    @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@map("system_settings")
+}
+
+enum ApprovalType {
+  finance
+  operations
+  administration
+}
+
+model InternalApproval {
+  id           String       @id @default(uuid()) @db.Uuid
+  vehicleId    String       @map("vehicle_id") @db.Uuid
+  approvalType ApprovalType @map("approval_type")
+  approvedBy   String       @map("approved_by") @db.Uuid
+  approvedAt   DateTime     @default(now()) @map("approved_at")
+  note         String?      @db.VarChar(500)
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  vehicle      Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  approver     User         @relation("ApprovedBy", fields: [approvedBy], references: [id])
+
+  @@unique([vehicleId, approvalType])
+  @@map("internal_approvals")
+}

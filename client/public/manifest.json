@@ -1,0 +1,18 @@
+{
+  "name": "الباشا للاستيراد",
+  "short_name": "الباشا",
+  "dir": "rtl",
+  "lang": "ar",
+  "display": "standalone",
+  "start_url": "/customer",
+  "background_color": "#0B1528",
+  "theme_color": "#1E2A38",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+import type { VehicleStage, UserTrackingStage } from '../types';
+
+export const VEHICLE_STAGES: VehicleStage[] = [
+  'AUCTION_PURCHASED',
+  'VEHICLE_RELEASED',
+  'CARRIER_PICKUP',
+  'INLAND_TRANSPORT',
+  'WAREHOUSE_ARRIVAL',
+  'INITIAL_INSPECTION',
+  'EXPORT_PREPARATION',
+  'TITLE_PROCESSING',
+  'PORT_DELIVERY_ORIGIN',
+  'PORT_TERMINAL_HANDLING',
+  'OCEAN_SHIPPING',
+  'IRAQ_PORT_ARRIVAL',
+  'CUSTOMS_CLEARANCE',
+  'LOCAL_TRANSPORT',
+  'FINAL_DELIVERY',
+  'POST_DELIVERY_ARCHIVE'
+];
+
+export const USER_TRACKING_STAGES: UserTrackingStage[] = [
+  'PURCHASED',
+  'PICKUP',
+  'WAREHOUSE',
+  'PORT',
+  'SHIPPING',
+  'IRAQ_ARRIVAL',
+  'CUSTOMS',
+  'DELIVERED'
+];
+
+export const STAGE_MAPPING: Record<VehicleStage, UserTrackingStage> = {
+  AUCTION_PURCHASED: 'PURCHASED',
+  VEHICLE_RELEASED: 'PURCHASED',
+  
+  CARRIER_PICKUP: 'PICKUP',
+  
+  INLAND_TRANSPORT: 'WAREHOUSE',
+  WAREHOUSE_ARRIVAL: 'WAREHOUSE',
+  INITIAL_INSPECTION: 'WAREHOUSE',
+  EXPORT_PREPARATION: 'WAREHOUSE',
+  
+  TITLE_PROCESSING: 'PORT',
+  PORT_DELIVERY_ORIGIN: 'PORT',
+  
+  PORT_TERMINAL_HANDLING: 'SHIPPING',
+  OCEAN_SHIPPING: 'SHIPPING',
+  
+  IRAQ_PORT_ARRIVAL: 'IRAQ_ARRIVAL',
+  
+  CUSTOMS_CLEARANCE: 'CUSTOMS',
+  
+  LOCAL_TRANSPORT: 'DELIVERED',
+  FINAL_DELIVERY: 'DELIVERED',
+  POST_DELIVERY_ARCHIVE: 'DELIVERED'
+};
+
+// System Default Settings
+export const DEFAULT_FILE_LIMITS = {
+  image: 10 * 1024 * 1024,      // 10MB
+  pdf: 20 * 1024 * 1024,        // 20MB
+  video: 100 * 1024 * 1024      // 100MB
+};
+
+export const SYSTEM_ROLES = {
+  SUPER_ADMIN: 'super_admin',
+  OPERATIONS_MANAGER: 'operations_manager',
+  BRANCH_MANAGER: 'branch_manager',
+  SENIOR_AGENT: 'senior_agent',
+  JUNIOR_AGENT: 'junior_agent',
+  SUPPORT_STAFF: 'support_staff',
+  CUSTOMER: 'customer'
+};
+
+export const PERMISSION_MODULES = {
+  VEHICLES: 'vehicles',
+  CUSTOMERS: 'customers',
+  WALLETS: 'wallets',
+  AGENTS: 'agents',
+  REPORTS: 'reports',
+  AUDIT_LOG: 'audit_log',
+  SETTINGS: 'settings',
+  ROLES: 'roles',
+  BRANCHES: 'branches'
+};
