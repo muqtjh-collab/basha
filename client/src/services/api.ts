@@ -45,7 +45,8 @@ api.interceptors.response.use(
       error.response?.status === 401 && 
       originalRequest && 
       !(originalRequest as any)._retry &&
-      !originalRequest.url?.includes('/auth/login')
+      !originalRequest.url?.includes('/auth/login') &&
+      !originalRequest.url?.includes('/auth/refresh')
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -83,8 +84,10 @@ api.interceptors.response.use(
         // Refresh failed (e.g. cookie expired), logout user
         useAuthStore.getState().clearAuth();
         
-        // Redirect to login page
-        window.location.href = '/auth/login';
+        // Redirect to login page only if we are not already there
+        if (window.location.pathname !== '/auth/login') {
+          window.location.href = '/auth/login';
+        }
         
         return Promise.reject(refreshError);
       } finally {
